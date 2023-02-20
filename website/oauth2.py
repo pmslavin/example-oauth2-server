@@ -8,6 +8,7 @@ from authlib.integrations.sqla_oauth2 import (
     create_revocation_endpoint,
     create_bearer_token_validator,
 )
+from .hydratoken import create_hydra_token_validator
 from authlib.oauth2.rfc6749 import grants
 from authlib.oauth2.rfc7636 import CodeChallenge
 from .models import db, User
@@ -73,6 +74,36 @@ class RefreshTokenGrant(grants.RefreshTokenGrant):
         db.session.commit()
 
 
+class JWTClientCredentialsGrant(grants.ClientCredentialsGrant):
+    print("grants.ClientCredentialsGrant")
+    GRANT_TYPE = "jwt-client-credentials-grant"
+
+    def create_token_response(self):
+        from flask import jsonify
+        from .oauth2 import authorization
+        from authlib.jose import jwt
+        from cryptography.hazmat.primitives import serialization
+        pk_file = "/home/paul/private.pem"
+
+        with open(pk_file, 'rb') as fp:
+            pk = serialization.load_pem_private_key(fp.read(), password=None)
+        header = {"alg": "RS256"}
+        """
+          Or for symmetric shared private key with HMAC...
+            pk = "shared-private-key"
+            header = {"alg": "HS256"}
+        """
+        pk = "shared-private-key"
+        header = {"alg": "HS256"}
+        oat = self.generate_token(scope=self.request.scope, include_refresh_token=False)
+        self.save_token(oat)
+        payload = {"iss": "hydra", "sub": oat}
+        jt = jwt.encode(header, payload, pk)
+        #breakpoint()
+        return 200, jt.decode(), self.TOKEN_RESPONSE_HEADER
+
+
+
 query_client = create_query_client_func(db.session, OAuth2Client)
 save_token = create_save_token_func(db.session, OAuth2Token)
 authorization = AuthorizationServer(
@@ -80,6 +111,7 @@ authorization = AuthorizationServer(
     save_token=save_token,
 )
 require_oauth = ResourceProtector()
+require_hydra = ResourceProtector()
 
 
 def config_oauth(app):
@@ -88,6 +120,7 @@ def config_oauth(app):
     # support all grants
     authorization.register_grant(grants.ImplicitGrant)
     authorization.register_grant(grants.ClientCredentialsGrant)
+    authorization.register_grant(JWTClientCredentialsGrant)
     authorization.register_grant(AuthorizationCodeGrant, [CodeChallenge(required=True)])
     authorization.register_grant(PasswordGrant)
     authorization.register_grant(RefreshTokenGrant)
@@ -99,3 +132,7 @@ def config_oauth(app):
     # protect resource
     bearer_cls = create_bearer_token_validator(db.session, OAuth2Token)
     require_oauth.register_token_validator(bearer_cls())
+
+    # hydra token
+    hydra_cls = create_hydra_token_validator(db.session, OAuth2Token, OAuth2Client)
+    require_hydra.register_token_validator(hydra_cls())

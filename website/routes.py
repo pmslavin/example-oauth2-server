@@ -5,7 +5,7 @@ from werkzeug.security import gen_salt
 from authlib.integrations.flask_oauth2 import current_token
 from authlib.oauth2 import OAuth2Error
 from .models import db, User, OAuth2Client
-from .oauth2 import authorization, require_oauth
+from .oauth2 import authorization, require_oauth, require_hydra
 
 
 bp = Blueprint('home', __name__)
@@ -125,5 +125,41 @@ def revoke_token():
 @bp.route('/api/me')
 @require_oauth('profile')
 def api_me():
+    print(f"{current_token=}")
     user = current_token.user
     return jsonify(id=user.id, username=user.username)
+
+
+@bp.route("/api/clientcred")
+@require_oauth('profile')
+def client_cred():
+    from authlib.jose import jwt
+    pk = "shared-private-key"
+    header = {"alg": "HS256"}
+    payload = {"iss": "hydra", "sub": current_token.client_id}
+    jt = jwt.encode(header, payload, pk)
+    return jt.decode()
+
+@bp.route("/api/rsacred")
+@require_oauth("profile")
+def rsa_cred():
+    from authlib.jose import jwt
+    from cryptography.hazmat.primitives import serialization
+    pk_file = "/home/paul/private.pem"
+    with open(pk_file, 'rb') as fp:
+        pk = serialization.load_pem_private_key(fp.read(), password=None)
+
+    header = {"alg": "RS256"}
+    payload = {"iss": "hydra", "sub": current_token.client_id}
+    jt = jwt.encode(header, payload, pk)
+    return jt.decode()
+
+@bp.route("/api/hydra")
+@require_hydra("profile")
+def hydra_cred():
+    t_info = {
+        "type": current_token.token_type,
+        "client_id": current_token.client_id,
+        "access_token": current_token.access_token
+    }
+    return t_info

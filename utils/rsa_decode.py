@@ -1,0 +1,13 @@
+from cryptography.hazmat.primitives import serialization
+from authlib.jose import jwt
+
+pubkey_file = "/home/paul/public.pem"
+
+with open(pubkey_file, 'rb') as fp:
+    pubkey = serialization.load_pem_public_key(fp.read())
+
+t = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJoeWRyYSIsInN1YiI6eyJ0b2tlbl90eXBlIjoiQmVhcmVyIiwiYWNjZXNzX3Rva2VuIjoiOXFaUXhQZUd3VjhPV1M3VDZsN3FNRVhjdzVRbWVVZG1CR25VUTBsUUhBIiwiZXhwaXJlc19pbiI6MzYwMCwic2NvcGUiOiJwcm9maWxlIn19.JuiVyqo31ptx16y3XJ_RMk72rYM3ndAKxedrfQgU_Jx0UVd_PLpkSSxqxo-uF0hR6Ezc2obN_Tr62-Qtr7m9teRpQXBAl-P3bVG03iBvbrsH6VqUJWeUzr-b7X_le5irhugmy_MQz_gYv0nsevWXJBVyc0n3LKxNUIfB7c9H0nRyAJWBeQS1SXi5GbADqMIsTp9Bt1Q3y6WtJ9XvPn90gIMdFtx2E07o_WhnfEcb-yqLj4iHM2aZR7TXgBk_7Nbi6oTFOvpXXbH8MPJR-4c5pzj48pquxfdHgknBE6QiB4jV51wNdPE6BXOePfGVCvXLuwY6zYf-OTfNuAeWEKnuKw"
+
+print(len(t))
+c = jwt.decode(t, pubkey)
+print(c)
